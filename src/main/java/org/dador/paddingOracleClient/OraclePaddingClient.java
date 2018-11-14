@@ -37,11 +37,10 @@ public class OraclePaddingClient {
      */
     protected byte[] buildGuessForPosition(byte[] ciphertext, byte[] decoded, int position, byte guess) {
         byte[] result = new byte[BLOCK_SIZE];
-
-        /**
-         * TODO : YOUR CODE HERE
-         */
-
+        
+        result = ciphertext;
+        result[result.length - 1] = guess;
+        
         return result;
     }
 
@@ -59,7 +58,13 @@ public class OraclePaddingClient {
         /**
          * TODO : YOUR CODE HERE
          */
-        return new byte[1][1];
+        byte[][] splittedArray = new byte[message.length/BLOCK_SIZE][BLOCK_SIZE];
+        for (int i = 0; i < message.length/BLOCK_SIZE; i++) {
+        	for (int j = 0; j < BLOCK_SIZE; j++) {
+        		splittedArray[i][j] = message[i*BLOCK_SIZE + j];
+        	}
+        }
+        return splittedArray;
     }
 
     /**
@@ -100,6 +105,33 @@ public class OraclePaddingClient {
         /**
          * TODO : YOUR CODE HERE
          */
+        
+        String firstBlockString = HexConverters.toHexFromByteArray(iv);
+    	String secondBlockString = HexConverters.toHexFromByteArray(ciphertext);
+    	String hexFromByteArray;
+		
+        
+    	byte[] firstBlockByte = HexConverters.toByteArrayFromHex(firstBlockString);
+    	byte lastByte = firstBlockByte[firstBlockByte.length - 1];
+    	
+    	int position = 0;
+		byte guess = 0;
+		boolean query;
+		lastByte = firstBlockByte[firstBlockByte.length - 1];
+    	do {
+    		
+    		firstBlockByte = buildGuessForPosition(firstBlockByte, null, position , guess);
+    		firstBlockString = HexConverters.toHexFromByteArray(firstBlockByte);
+    		hexFromByteArray = firstBlockString + secondBlockString;
+    		query = poq.query(hexFromByteArray);
+    		guess++;
+    	} while(!query);
+    	guess--;
+    	
+    	decoded[firstBlockByte.length - 1] = (byte) (lastByte^0x01^guess);
+    	System.out.println("Value Guessed : " + guess);
+    	System.out.println("Server responded : " + query);
+    	
         return decoded;
     }
 
@@ -107,7 +139,17 @@ public class OraclePaddingClient {
         OraclePaddingClient opc = new OraclePaddingClient();
         PaddingOracleQuery opq = new PaddingOracleQuery();
         try {
-            System.out.println("Server responded : " + opq.query(ENCRYPTED_MESSAGE));
+        	byte[][] blocks = opc.splitMessageIntoBlocks(HexConverters.toByteArrayFromHex(ENCRYPTED_MESSAGE));
+        	
+        	byte[] b = opc.runDecryptionForBlock(opq, blocks[0], blocks[1], 0);
+        	String hexFromByteArray = HexConverters.toHexFromByteArray(b);
+			opq.query(hexFromByteArray);
+		
+			System.out.println(HexConverters.toHexFromByteArray(b));
+			
+        	
+        	
+        	
         } catch (Exception e) {
             System.out.print("Exception caught. Server down ?");
             e.printStackTrace();
